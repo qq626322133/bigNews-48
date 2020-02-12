@@ -37,31 +37,32 @@
       </form>
     </div>
   </div>
-  <!-- 模态框 -->
+  <!--Modal bootstrap里的弹出 模态框 -->
   <div class="modal fade" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
     <div class="modal-dialog" role="document">
       <div class="modal-content">
         <div class="modal-header">
           <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span
               aria-hidden="true">&times;</span></button>
-          <h4 class="modal-title" id="myModalLabel">Modal title</h4>
+          <h4 class="modal-title" id="myModalLabel">温馨提示</h4>
         </div>
         <div class="modal-body">
           ...
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-          <button type="button" class="btn btn-primary">Save changes</button>
+          <button type="button" class="btn btn-default" data-dismiss="modal">确定</button>
         </div>
       </div>
     </div>
   </div>
+  <!-- 引入了http.js文件,那这个自执行函数就会执行,那window中就有了一个BigNew对象 -->
+  <script src="./libs/http.js"></script>
   <script>
     // 入口函数 
     $(function () {
       // 完成登录
       //1.给登录按钮设置一个点击事件
-      $('.imput_sub').on('click', function (e) {
+      $('.input_sub').on('click', function (e) {
         // 阻止form表单中的sumbit按钮的一个默认提交事件
         e.preventDefault();
         //2.获取用户输入的账号和密码
@@ -73,32 +74,37 @@
           //要么自己写个div先隐藏，等要的时候弹出
           //要么就是用bootstrap里面为我们提供好的弹出窗
           $('.modal-body').text('账号和密码不能为空')
-          $('#myModal').modal(options);
+          $('#myModal').modal();
           return;
         }
         //3.发送ajax请求，完成登录
         $.ajax({
           type: 'post',
-          url: "http://localhost:8080/api/v1/admin/user/login",
+      url: BigNew.user_login,
           data: {
             username: username,
             password: password
           },
-          success: function (bData) {
-            if (bData.code == 200) {
-              $('.modal-body').text(bData.msg);
-              $('#myModal').modal();
-              $('.myModal').on('hidden.bs.modal', function (e) {
+          success: function (backData) {
+            console.log(backData);
+            if (backData.code == 200) {
+              //4.如果账号密码没有问题，登录登出，跳转到首页（index.html）
+              $('.modal-body').text(backData.msg);
+              $('#myModal').modal(); //js代码弹出bootstrap的模态框
+              //在这里应该是要 关闭模态框 的情况下才执行下面这个跳转的代码.
+              $('#myModal').on('hidden.bs.modal', function (e) {
+              //   //把服务器返回回来的Token令牌给保存起来. 
+                localStorage.setItem('token', backData.token);
+              //   //登录成功跳转到首页.
                 window.location.href = './index.html';
               });
             } else {
-              $('.modal-body').text(bData.msg);
+              // 如果账号密码有误。提示
+              $('.modal-body').text(backData.msg);
               $('#myModal').modal();
             }
           }
         });
-        //4.如果账号密码没有问题，登录登出，跳转到首页（index.html）
-        // 如果账号密码有误。提示
       })
     })
   </script>

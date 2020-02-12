@@ -20,7 +20,7 @@
         <a href="#" class="logo"><img src="images/logo02.png" alt="logo"></a>
         <div class="user_info">
             <img src="images/2.jpg" alt="person">
-            <span>欢迎&nbsp;&nbsp;李思思</span>
+            <span>欢迎&nbsp;&nbsp;<i style="font-style: normal;">李思</i></span>
             <b>管理员</b>
         </div>
         <!-- 左侧导航栏 -->
@@ -54,5 +54,34 @@
 
         </div>
     </div>
+    <script src="./libs/http.js"></script>
+    <script>
+        // 入口函数
+        $(function () {
+            //一:一进到首页,就发送ajax请求,获取个人信息
+            //使用jQuery来发送ajax请求. 
+            $.ajax({
+                type: 'get',
+                // 这里就是把token令牌带过去.
+                url: window.BigNew.user_info,
+                success: function (backData) {
+                    console.log(backData);
+                    //显示个人信息了...
+                    $('.user_info>img').attr('src', backData.data.userPic);
+                    $('.user_info>span>i').text(backData.data.nickname);
+                    $('.user_center_link>img').attr('src', backData.data.userPic);
+                }
+            });
+            //二:退出
+            $('.logout').on('click', function (e) {
+                e.preventDefault(); //阻止a标签的默认跳转. 
+                //删除token. 
+                localStorage.removeItem('token');
+                //回到登录页. 
+                window.location.href = './login.html';
+            })
+        })
+    </script>
 </body>
+
 </html>
