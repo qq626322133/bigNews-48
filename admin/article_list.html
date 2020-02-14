@@ -72,6 +72,32 @@
             </div>
         </div>
     </div>
+    <!-- 准备一个 文章类别 模板 -->
+    <script id="category_temp" type="text/html">
+        <option value="">所有分类</option>
+        <!-- each语法的 data: 带个别名 v -->
+        {{each data v}}
+        <option value="{{v.id}}">{{v.name}}</option>
+        {{/each}}
+    </script>
+
+    <script src="./libs/http.js"></script>
+    <script>
+        // 入口函数
+        $(function () {
+            $.ajax({
+                type: 'get',
+                url: BigNew.category_list,
+                success: function (backData) {
+                    if (backData.code == 200) {
+                        //通过模板引擎渲染到页面上.
+                        var resHtml = template('category_temp', backData);
+                        $('#selCategory').html(resHtml);
+                    }
+                }
+            })
+        })
+    </script>
 </body>
 
 </html>
