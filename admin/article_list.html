@@ -13,6 +13,10 @@
     <script src="./libs/jquery-1.12.4.min.js"></script>
     <!-- 引入模板引擎js文件 -->
     <script src="./libs/template-web.js"></script>
+    <!-- 引入分页pagination插件js -->
+    <script src="./libs/jquery.twbsPagination.js"></script>
+    <!-- 引入bootstrap的js文件 -->
+    <script src="./libs/bootstrap/js/bootstrap.min.js"></script>
 </head>
 
 <body>
@@ -68,7 +72,10 @@
                     </tr>
                 </tbody>
             </table>
+            <!-- 分页插件结构 -->
             <div class="row text-center">
+                <ul id="pagination" class="pagination-sm"></ul>
+                <p>没有数据</p>
             </div>
         </div>
     </div>
@@ -91,7 +98,7 @@
             <td class="text-center">{{v.state}}</td>
             <td class="text-center">
                 <a href="article_edit.html" class="btn btn-default btn-xs">编辑</a>
-                <a href="javascript:void(0);" data-id="{{v.categoryId}}" class="btn btn-danger btn-xs delete">删除</a>
+                <a href="javascript:void(0);" data-id="{{v.id}}" class="btn btn-danger btn-xs delete">删除</a>
             </td>
         </tr>
         {{/each}}
@@ -111,47 +118,184 @@
                     }
                 }
             });
-            //二:一进到页面,就发送ajax请求,获取默认的文章数据列表,显示在页面上
-            $.ajax({
-                type: 'get',
-                url: BigNew.article_query,
-                data: {
-                    type: $('#selCategory').val(), //文章类别
-                    state: $('#selStatus').val(), // 文章状态
-                    page: 1,
-                    perpage: 6
-                },
-                success: function (backData) {
-                    console.log(backData);
-                    if (backData.code == 200) {
-                        //调用模板引擎的核心方法
-                        var resHtml = template('articleList_temp', backData);
-                        $('tbody').html(resHtml);
-                    }
-                }
-            });
-            //三:点击筛选按钮,获取满足条件的文章们
-            $('#btnSearch').on('click',function(e){
-                e.preventDefault();
+            //声明一个变量myPage,用它来表示 当前点击 的页码
+            var myPage = 1;
+            // 发送ajax请求，根据条件获取对应的文章列表，封闭成一个函数
+            function getData(myPage, callback) {
                 $.ajax({
-                type: 'get',
-                url: BigNew.article_query,
-                data: {
-                    type: $('#selCategory').val(), //文章类别
-                    state: $('#selStatus').val(), // 文章状态
-                    page: 1,
-                    perpage: 6
-                },
-                success: function (backData) {
-                    console.log(backData);
-                    if (backData.code == 200) {
-                        //调用模板引擎的核心方法
-                        var resHtml = template('articleList_temp', backData);
-                        $('tbody').html(resHtml);
+                    type: 'get',
+                    url: BigNew.article_query,
+                    data: {
+                        type: $('#selCategory').val(), //文章类别
+                        state: $('#selStatus').val(), // 文章状态
+                        page: myPage,
+                        perpage: 3
+                    },
+                    success: function (backData) {
+                        if (backData.code == 200) {
+                            //调用模板引擎的核心方法
+                            var resHtml = template('articleList_temp', backData);
+                            $('tbody').html(resHtml);
+                            //额外做事情
+                            if (backData.data.data.length != 0 && callback != null) {
+                                //有数据 如果 有数据 ，分页显示，没有数据 的P标签就隐藏
+                                $('#pagination').show();
+                                $('#pagination').next().hide();
+                                callback(backData);
+                            }  else if (backData.data.data.length == 0 && myPage == 1) {
+                                //没有数据 如果没有数据 ，分页就不要显示，就显示没有数据
+                                $('#pagination').hide();
+                                $('#pagination').next().show();
+                            }else if (backData.data.totalPage == myPage - 1 && backData.data.data.length == 0) {
+                                myPage -= 1;
+                                $('#pagination').twbsPagination('changeTotalPages', backData.data .totalPage, myPage);
+                            }
+                        }
                     }
-                }
-            });
+                })
+            }
+            //二:一进到页面,就发送ajax请求,获取默认的文章数据列表,显示在页面上
+            getData(1, function (backData) {
+                $('#pagination').twbsPagination({
+                    totalPages: backData.data.totalPage, //总的页数
+                    visiblePages: 7,
+                    first: '首页',
+                    prev: '上一页',
+                    next: '下一页',
+                    last: '尾页',
+                    //这个onPageClick是点击分页页码触发的事件
+                    onPageClick: function (event, page) {
+                        myPage = page;
+                        getData(page, null);
+                    }
+                })
+                //三:点击筛选按钮,获取满足条件的文章们 
+                $('#btnSearch').on('click', function (e) {
+                    e.preventDefault();
+                    getData(1, function (backData) {
+                        //点击筛选按钮，由于更改了条件，那筛选出来的数据总数就会发生更改
+                        //所以要根据新的总页数  来重新生成分页结构
+                        $(('#pagination')).twbsPagination('changeTotalPages', backData
+                            .data.totalPage, 1);
+                    })
+                });
             })
+            // 四:删除文章
+            //给删除按钮点击事件(委托注册)
+            $('tbody').on('click', '.delete', function () {
+                if (confirm('你确定要删除吗？')) {
+                    //通过当前点击 的这个删除按钮自定义属性(data-id)获取当前 文章id
+                    var articleId = $(this).attr('data-id');
+                    //发送ajax请求完成删除
+                    $.ajax({
+                        type: 'post',
+                        url: BigNew.article_delete,
+                        data: {
+                            id: articleId
+                        },
+                        success: function (backData) {
+                            console.log(backData);
+                            if (backData.code == 204) {
+                                //重新加载由于删除部分数据 得到的是新的数据 
+                                //由于删除了数据，那总的页码就有可能变少，
+                                //那就应该根据新的总页数重新生成分页结构
+                                getData(myPage, function (backData) {
+                                    //第一种方法
+                                    $('#pagination').twbsPagination(
+                                        'changeTotalPages', backData.data
+                                        .totalPage, myPage);
+                                    //第二种方法
+                                    // if(backData.data.totalPage == myPage || myPage == 1){
+                                    //    $(('#pagination')).twbsPagination('changeTotalPages', backData.data.totalPage,myPage); 
+                                    // }else{
+                                    //     $(('#pagination')).twbsPagination('changeTotalPages', backData.data.totalPage,myPage-1);
+                                    // }
+                                })
+                            }
+                        }
+                    })
+                }
+            })
+
+
+            //---------------------------------------------------
+
+
+            //二:一进到页面,就发送ajax请求,获取默认的文章数据列表,显示在页面上
+            // $.ajax({
+            //     type: 'get',
+            //     url: BigNew.article_query,
+            //     data: {
+            //         type: $('#selCategory').val(), //文章类别
+            //         state: $('#selStatus').val(), // 文章状态
+            //         page: 1,
+            //         perpage: 6
+            //     },
+            //     success: function (backData) {
+            //         console.log(backData);
+            //         if (backData.code == 200) {
+            //             //调用模板引擎的核心方法
+            //             var resHtml = template('articleList_temp', backData);
+            //             $('tbody').html(resHtml);
+            //             //分布插件的方法
+            //             $('#pagination').twbsPagination({
+            //                 totalPages: backData.data.totalPage, //总的页数
+            //                 visiblePages: 7,
+            //                 first: '首页',
+            //                 prev: '上一页',
+            //                 next: '下一页',
+            //                 last: '尾页',
+            //                 onPageClick: function (event, page) {
+            //                     $.ajax({
+            //                         type: 'get',
+            //                         url: BigNew.article_query,
+            //                         data: {
+            //                             type: $('#selCategory').val(), //文章类别
+            //                             state: $('#selStatus').val(), // 文章状态
+            //                             page: page,
+            //                             perpage: 6
+            //                         },
+            //                         success: function (backData) {
+            //                             console.log(backData);
+            //                             if (backData.code == 200) {
+            //                                 //调用模板引擎的核心方法
+            //                                 var resHtml = template(
+            //                                     'articleList_temp',
+            //                                     backData);
+            //                                 $('tbody').html(resHtml);
+            //                             }
+            //                         }
+            //                     });
+            //                 }
+            //             });
+            //         }
+            //     }
+            // });
+            // //三:点击筛选按钮,获取满足条件的文章们
+            // $('#btnSearch').on('click', function (e) {
+            //     e.preventDefault();
+            //     $.ajax({
+            //         type: 'get',
+            //         url: BigNew.article_query,
+            //         data: {
+            //             type: $('#selCategory').val(), //文章类别
+            //             state: $('#selStatus').val(), // 文章状态
+            //             page: 1,
+            //             perpage: 6
+            //         },
+            //         success: function (backData) {
+            //             console.log(backData);
+            //             if (backData.code == 200) {
+            //                 //调用模板引擎的核心方法
+            //                 var resHtml = template('articleList_temp', backData);
+            //                 $('tbody').html(resHtml);
+            //                 //点击筛选按钮，由于更改了条件，那筛选出来的数据总数就会发生更改
+            //                 //所以要根据新的总页数  来重新生成分页结构
+            //                 $(('#pagination')).twbsPagination('changeTotalPages', backData.data.totalPage, 1);
+            //             }
+            //         }
+            //     });
+            // })
         })
     </script>
 </body>
